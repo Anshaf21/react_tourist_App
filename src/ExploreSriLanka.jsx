@@ -95,12 +95,14 @@ export default function ExploreSriLanka() {
   const [view, setView] = useState("explore"); // explore | map | favorites
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
-  const [sortBy, setSortBy] = useState("name"); // name | rating | distance
+  const [district, setDistrict] = useState("all");
+  const [sortBy, setSortBy] = useState("district"); // district | rating | distance
   const [favorites, setFavorites] = useState(() => new Set());
   const [userLoc, setUserLoc] = useState(null);
   const [locStatus, setLocStatus] = useState("idle"); // idle | loading | granted | denied
   const [selectedId, setSelectedId] = useState(null);
   const [sortOpen, setSortOpen] = useState(false);
+  const [districtOpen, setDistrictOpen] = useState(false);
   const cardRefs = useRef({});
 
   useEffect(() => {
@@ -149,18 +151,19 @@ export default function ExploreSriLanka() {
         p.district.toLowerCase().includes(query.toLowerCase()) ||
         p.province.toLowerCase().includes(query.toLowerCase());
       const matchesCategory = category === "all" || p.category === category;
+      const matchesDistrict = district === "all" || p.district === district;
       const matchesView = view !== "favorites" || favorites.has(p.id);
-      return matchesQuery && matchesCategory && matchesView;
+      return matchesQuery && matchesCategory && matchesDistrict && matchesView;
     });
 
     list = [...list].sort((a, b) => {
       if (sortBy === "rating") return b.rating - a.rating;
       if (sortBy === "distance" && userLoc)
         return a.distanceKm - b.distanceKm;
-      return a.name.localeCompare(b.name);
+      return a.district.localeCompare(b.district);
     });
     return list;
-  }, [enriched, query, category, view, favorites, sortBy, userLoc]);
+  }, [enriched, query, category, district, view, favorites, sortBy, userLoc]);
 
   const counts = useMemo(() => {
     const c = { all: PLACES.length };
@@ -168,6 +171,12 @@ export default function ExploreSriLanka() {
       c[k] = PLACES.filter((p) => p.category === k).length;
     });
     return c;
+  }, []);
+
+  const districts = useMemo(() => {
+    return Array.from(new Set(PLACES.map((p) => p.district))).sort((a, b) =>
+      a.localeCompare(b)
+    );
   }, []);
 
   function focusPlace(id) {
@@ -308,42 +317,94 @@ export default function ExploreSriLanka() {
               ))}
             </div>
 
-            {/* Sort control */}
-            <div className="flex items-center justify-between mb-4">
+            {/* Sort & district controls */}
+            <div className="flex items-center justify-between mb-4 gap-2">
               <span className="text-xs" style={{ color: COLORS.muted }}>
                 {filtered.length} {filtered.length === 1 ? "place" : "places"}
               </span>
-              <div className="relative">
-                <button
-                  onClick={() => setSortOpen((s) => !s)}
-                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg"
-                  style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, color: COLORS.muted }}
-                >
-                  <ArrowUpDown size={12} />
-                  Sort: {sortBy === "distance" ? "Distance" : sortBy === "rating" ? "Rating" : "Name"}
-                  <ChevronDown size={12} />
-                </button>
-                {sortOpen && (
-                  <div
-                    className="absolute right-0 mt-1 rounded-lg overflow-hidden z-20 w-36"
-                    style={{ background: COLORS.surfaceLight, border: `1px solid ${COLORS.border}` }}
+              <div className="flex items-center gap-2">
+                {/* District filter */}
+                <div className="relative">
+                  <button
+                    onClick={() => {
+                      setDistrictOpen((s) => !s);
+                      setSortOpen(false);
+                    }}
+                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg"
+                    style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, color: COLORS.muted }}
                   >
-                    {["name", "rating", "distance"].map((opt) => (
+                    <MapPin size={12} />
+                    District: {district === "all" ? "All" : district}
+                    <ChevronDown size={12} />
+                  </button>
+                  {districtOpen && (
+                    <div
+                      className="absolute right-0 mt-1 rounded-lg overflow-hidden z-20 w-44 max-h-64 overflow-y-auto"
+                      style={{ background: COLORS.surfaceLight, border: `1px solid ${COLORS.border}` }}
+                    >
                       <button
-                        key={opt}
-                        disabled={opt === "distance" && !userLoc}
                         onClick={() => {
-                          setSortBy(opt);
-                          setSortOpen(false);
+                          setDistrict("all");
+                          setDistrictOpen(false);
                         }}
-                        className="w-full text-left px-3 py-2 text-xs capitalize disabled:opacity-40"
-                        style={{ color: COLORS.text }}
+                        className="w-full text-left px-3 py-2 text-xs"
+                        style={{ color: district === "all" ? COLORS.gold : COLORS.text }}
                       >
-                        {opt}
+                        All districts
                       </button>
-                    ))}
-                  </div>
-                )}
+                      {districts.map((d) => (
+                        <button
+                          key={d}
+                          onClick={() => {
+                            setDistrict(d);
+                            setDistrictOpen(false);
+                          }}
+                          className="w-full text-left px-3 py-2 text-xs"
+                          style={{ color: district === d ? COLORS.gold : COLORS.text }}
+                        >
+                          {d}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Sort control */}
+                <div className="relative">
+                  <button
+                    onClick={() => {
+                      setSortOpen((s) => !s);
+                      setDistrictOpen(false);
+                    }}
+                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg"
+                    style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, color: COLORS.muted }}
+                  >
+                    <ArrowUpDown size={12} />
+                    Sort: {sortBy === "distance" ? "Distance" : sortBy === "rating" ? "Rating" : "District"}
+                    <ChevronDown size={12} />
+                  </button>
+                  {sortOpen && (
+                    <div
+                      className="absolute right-0 mt-1 rounded-lg overflow-hidden z-20 w-36"
+                      style={{ background: COLORS.surfaceLight, border: `1px solid ${COLORS.border}` }}
+                    >
+                      {["district", "rating", "distance"].map((opt) => (
+                        <button
+                          key={opt}
+                          disabled={opt === "distance" && !userLoc}
+                          onClick={() => {
+                            setSortBy(opt);
+                            setSortOpen(false);
+                          }}
+                          className="w-full text-left px-3 py-2 text-xs capitalize disabled:opacity-40"
+                          style={{ color: COLORS.text }}
+                        >
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
